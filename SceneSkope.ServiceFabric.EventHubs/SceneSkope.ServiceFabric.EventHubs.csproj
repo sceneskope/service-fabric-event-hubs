@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net452</TargetFramework>
+    <RuntimeIdentifier>win7-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ServiceFabric.Serilog" Version="2.5.72" />
+    <PackageReference Include="ServiceFabric.Utilities" Version="2.5.72" />
+    <PackageReference Include="Microsoft.Azure.EventHubs" Version="1.0.1" />
+  </ItemGroup>
+
+</Project>
