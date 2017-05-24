@@ -5,7 +5,7 @@ VisualStudioVersion = 15.0.26430.6
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8DF975D4-8AE9-4F26-A5EE-2600719A6588}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SceneSkope.ServiceFabric.EventHubs", "SceneSkope.ServiceFabric.EventHubs\SceneSkope.ServiceFabric.EventHubs.csproj", "{DDD80FF0-AD3D-491A-B40B-F2888E7FF32C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SceneSkope.ServiceFabric.EventHubs", "src\SceneSkope.ServiceFabric.EventHubs\SceneSkope.ServiceFabric.EventHubs.csproj", "{DDD80FF0-AD3D-491A-B40B-F2888E7FF32C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{45A3A537-2299-4F9A-BDBC-67F0FC7F071C}"
 	ProjectSection(SolutionItems) = preProject
@@ -22,10 +22,10 @@ Global
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{DDD80FF0-AD3D-491A-B40B-F2888E7FF32C}.Debug|x64.ActiveCfg = Debug|x64
-		{DDD80FF0-AD3D-491A-B40B-F2888E7FF32C}.Debug|x64.Build.0 = Debug|x64
-		{DDD80FF0-AD3D-491A-B40B-F2888E7FF32C}.Release|x64.ActiveCfg = Release|x64
-		{DDD80FF0-AD3D-491A-B40B-F2888E7FF32C}.Release|x64.Build.0 = Release|x64
+		{DDD80FF0-AD3D-491A-B40B-F2888E7FF32C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DDD80FF0-AD3D-491A-B40B-F2888E7FF32C}.Debug|x64.Build.0 = Debug|Any CPU
+		{DDD80FF0-AD3D-491A-B40B-F2888E7FF32C}.Release|x64.ActiveCfg = Release|Any CPU
+		{DDD80FF0-AD3D-491A-B40B-F2888E7FF32C}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

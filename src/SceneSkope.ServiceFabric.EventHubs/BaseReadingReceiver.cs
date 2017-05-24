@@ -16,6 +16,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
     {
         public ILogger Log { get; }
         public IReliableStateManager StateManager { get; }
+        public bool AutomaticallySave { get; }
 
         private readonly IReliableDictionary<string, string> _offsets;
         protected readonly string _partition;
@@ -23,9 +24,13 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         public virtual int MaxBatchSize => 100;
 
-        protected BaseReadingReceiver(ILogger log, IReliableStateManager stateManager, IReliableDictionary<string, string> offsets, string partition, CancellationTokenSource cts)
+        protected BaseReadingReceiver(ILogger log, IReliableStateManager stateManager,
+        IReliableDictionary<string, string> offsets, string partition,
+        bool automaticallySave,
+        CancellationTokenSource cts)
         {
             Log = log;
+            AutomaticallySave = automaticallySave;
             StateManager = stateManager;
             _offsets = offsets;
             _partition = partition;
@@ -72,10 +77,13 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
             if (lastOffset != null)
             {
-                using (var tx = StateManager.CreateTransaction())
+                if (AutomaticallySave)
                 {
-                    await SaveOffsetAsync(tx, lastOffset).ConfigureAwait(false);
-                    await tx.CommitAsync().ConfigureAwait(false);
+                    using (var tx = StateManager.CreateTransaction())
+                    {
+                        await SaveOffsetAsync(tx, lastOffset).ConfigureAwait(false);
+                        await tx.CommitAsync().ConfigureAwait(false);
+                    }
                 }
             }
         }
