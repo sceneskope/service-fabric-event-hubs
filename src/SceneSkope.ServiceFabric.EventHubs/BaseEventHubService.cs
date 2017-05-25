@@ -19,6 +19,8 @@ namespace SceneSkope.ServiceFabric.EventHubs
         private const string OffsetsName = "offsets";
         protected readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
+        protected string DefaultPosition { get; set; } = PartitionReceiver.EndOfStream;
+
         protected BaseEventHubService(StatefulServiceContext context, ILogger logger)
             : base(context, logger)
         {
@@ -132,7 +134,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 }
                 else
                 {
-                    return PartitionReceiver.EndOfStream;
+                    return DefaultPosition;
                 }
             }
         }
