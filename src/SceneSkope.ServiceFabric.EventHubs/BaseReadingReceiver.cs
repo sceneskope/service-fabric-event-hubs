@@ -5,8 +5,6 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Fabric;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -29,7 +27,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
         bool automaticallySave,
         CancellationTokenSource cts)
         {
-            Log = log;
+            Log = log.ForContext("partition", partition);
             AutomaticallySave = automaticallySave;
             StateManager = stateManager;
             _offsets = offsets;
