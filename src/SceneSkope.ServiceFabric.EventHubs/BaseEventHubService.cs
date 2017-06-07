@@ -17,7 +17,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
     {
         private const string PartitionsName = "partitions";
         private const string OffsetsName = "offsets";
-        protected readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
         protected string DefaultPosition { get; set; } = PartitionReceiver.EndOfStream;
 
@@ -111,15 +110,37 @@ namespace SceneSkope.ServiceFabric.EventHubs
         {
             await TryConfigureAsync(cancellationToken).ConfigureAwait(false);
             var partitions = await GetOrCreatePartitionListAsync(cancellationToken).ConfigureAwait(false);
-            using (var registration = cancellationToken.Register(() => _cts.Cancel()))
+            using (var cts = new CancellationTokenSource())
+            using (cancellationToken.Register(() => cts.Cancel()))
             {
-                var offsets = await StateManager.GetOrAddAsync<IReliableDictionary<string, string>>(OffsetsName).ConfigureAwait(false);
-                var tasks = new Task[partitions.Length];
-                for (var i = 0; i < partitions.Length; i++)
+                try
                 {
-                    tasks[i] = ProcessPartitionAsync(partitions[i], offsets);
+                    var offsets = await StateManager.GetOrAddAsync<IReliableDictionary<string, string>>(OffsetsName).ConfigureAwait(false);
+                    var tasks = new Task[partitions.Length];
+                    for (var i = 0; i < partitions.Length; i++)
+                    {
+                        tasks[i] = ProcessPartitionAsync(partitions[i], offsets, cts.Token);
+                    }
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
                 }
-                await Task.WhenAll(tasks).ConfigureAwait(false);
+                catch (OperationCanceledException ex)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        Log.Information("Host service cancelled");
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+                    else
+                    {
+                        Log.Warning(ex, "Not sure why, but this is exiting: {exception}", ex.Message);
+                    }
+                    throw;
+                }
+                catch (Exception ex) when (!(ex is FabricException))
+                {
+                    Log.Error(ex, "Hub service cancelling: {exception}", ex.Message);
+                    throw;
+                }
             }
         }
 
@@ -139,17 +160,17 @@ namespace SceneSkope.ServiceFabric.EventHubs
             }
         }
 
-        private async Task ProcessPartitionAsync(string partition, IReliableDictionary<string, string> offsets)
+        private async Task ProcessPartitionAsync(string partition, IReliableDictionary<string, string> offsets, CancellationToken ct)
         {
             var offset = await ReadOffsetAsync(partition, offsets).ConfigureAwait(false);
             var offsetInclusive = offset == PartitionReceiver.StartOfStream;
             var receiver = _client.CreateEpochReceiver(_consumerGroup, partition, offset, offsetInclusive, DateTime.UtcNow.Ticks);
             try
             {
-                var handler = CreateReadingReceiver(Log, StateManager, offsets, partition, _cts);
+                var handler = CreateReadingReceiver(Log, StateManager, offsets, partition, ct);
                 await handler.InitialiseAsync().ConfigureAwait(false);
                 receiver.SetReceiveHandler(handler);
-                await Task.Delay(Timeout.Infinite, _cts.Token).ConfigureAwait(false);
+                await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
             }
             finally
             {
@@ -157,6 +178,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
             }
         }
 
-        protected abstract BaseReadingReceiver CreateReadingReceiver(ILogger log, IReliableStateManager stateManager, IReliableDictionary<string, string> offsets, string partition, CancellationTokenSource cts);
+        protected abstract BaseReadingReceiver CreateReadingReceiver(ILogger log, IReliableStateManager stateManager, IReliableDictionary<string, string> offsets, string partition, CancellationToken ct);
     }
 }

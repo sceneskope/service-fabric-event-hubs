@@ -18,21 +18,21 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         private readonly IReliableDictionary<string, string> _offsets;
         protected readonly string _partition;
-        protected readonly CancellationTokenSource _cts;
+        protected readonly CancellationToken _ct;
 
         public virtual int MaxBatchSize => 100;
 
         protected BaseReadingReceiver(ILogger log, IReliableStateManager stateManager,
         IReliableDictionary<string, string> offsets, string partition,
         bool automaticallySave,
-        CancellationTokenSource cts)
+        CancellationToken ct)
         {
             Log = log.ForContext("partition", partition);
             AutomaticallySave = automaticallySave;
             StateManager = stateManager;
             _offsets = offsets;
             _partition = partition;
-            _cts = cts;
+            _ct = ct;
         }
 
         public virtual Task InitialiseAsync() => Task.FromResult(true);
@@ -43,7 +43,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
             {
                 Log.Error(error, "Error reading {partition}: {exception}", _partition, error.Message);
             }
-            _cts.Cancel();
             return Task.FromResult(true);
         }
 
