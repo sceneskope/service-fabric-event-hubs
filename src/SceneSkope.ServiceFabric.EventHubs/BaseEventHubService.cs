@@ -163,6 +163,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
         private async Task ProcessPartitionAsync(string partition, IReliableDictionary<string, string> offsets, CancellationToken ct)
         {
             var offset = await ReadOffsetAsync(partition, offsets).ConfigureAwait(false);
+            Log.Information("Process partition {partition} with offset {offset}", partition, offset);
             var offsetInclusive = offset == PartitionReceiver.StartOfStream;
             var receiver = _client.CreateEpochReceiver(_consumerGroup, partition, offset, offsetInclusive, DateTime.UtcNow.Ticks);
             try
