@@ -1,15 +1,13 @@
-﻿using Microsoft.ServiceFabric.Data.Collections;
+﻿using Microsoft.Azure.EventHubs;
+using Microsoft.ServiceFabric.Data;
+using Microsoft.ServiceFabric.Data.Collections;
 using Serilog;
 using ServiceFabric.Serilog;
+using ServiceFabric.Utilities;
 using System;
-using System.Collections.Generic;
 using System.Fabric;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using ServiceFabric.Utilities;
-using Microsoft.Azure.EventHubs;
-using Microsoft.ServiceFabric.Data;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {
@@ -173,8 +171,14 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 receiver.SetReceiveHandler(handler);
                 await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
             }
+            catch (Exception ex) when (!((ex is FabricException) || (ex is OperationCanceledException)))
+            {
+                Log.Error(ex, "Error processing partition: {exception}", ex.Message);
+                throw;
+            }
             finally
             {
+                Log.Information("Finished processing partition {partition}", partition);
                 await receiver.CloseAsync().ConfigureAwait(false);
             }
         }
