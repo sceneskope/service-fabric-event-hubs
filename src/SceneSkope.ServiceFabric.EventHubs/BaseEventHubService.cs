@@ -109,34 +109,27 @@ namespace SceneSkope.ServiceFabric.EventHubs
             await TryConfigureAsync(cancellationToken).ConfigureAwait(false);
             var partitions = await GetOrCreatePartitionListAsync(cancellationToken).ConfigureAwait(false);
             using (var cts = new CancellationTokenSource())
-            using (cancellationToken.Register(() => cts.Cancel()))
+            using (cancellationToken.Register(() =>
             {
+                Log.Debug("Service cancellation requested");
+                cts.Cancel();
+            }))
+            {
+                var ct = cts.Token;
                 try
                 {
                     var offsets = await StateManager.GetOrAddAsync<IReliableDictionary<string, string>>(OffsetsName).ConfigureAwait(false);
                     var tasks = new Task[partitions.Length];
                     for (var i = 0; i < partitions.Length; i++)
                     {
-                        tasks[i] = ProcessPartitionAsync(partitions[i], offsets, cts.Token);
+                        tasks[i] = ProcessPartitionAsync(partitions[i], offsets, ct);
                     }
                     await Task.WhenAll(tasks).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException ex)
+                catch (Exception ex)
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        Log.Information("Host service cancelled");
-                        cancellationToken.ThrowIfCancellationRequested();
-                    }
-                    else
-                    {
-                        Log.Warning(ex, "Not sure why, but this is exiting: {exception}", ex.Message);
-                    }
-                    throw;
-                }
-                catch (Exception ex) when (!(ex is FabricException))
-                {
-                    Log.Error(ex, "Hub service cancelling: {exception}", ex.Message);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Log.Error(ex, "Event hub service exiting due to {exception}", ex.Message);
                     throw;
                 }
             }
@@ -171,8 +164,9 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 receiver.SetReceiveHandler(handler);
                 await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
             }
-            catch (Exception ex) when (!((ex is FabricException) || (ex is OperationCanceledException)))
+            catch (Exception ex)
             {
+                ct.ThrowIfCancellationRequested();
                 Log.Error(ex, "Error processing partition: {exception}", ex.Message);
                 throw;
             }

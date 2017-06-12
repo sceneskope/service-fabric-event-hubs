@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Fabric;
 using System.Threading;
 using System.Threading.Tasks;
+using Polly;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {
@@ -21,6 +22,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
         protected readonly CancellationToken _ct;
 
         public virtual int MaxBatchSize => 100;
+        protected Policy TimeoutPolicy { get; }
 
         protected BaseReadingReceiver(ILogger log, IReliableStateManager stateManager,
         IReliableDictionary<string, string> offsets, string partition,
@@ -33,6 +35,11 @@ namespace SceneSkope.ServiceFabric.EventHubs
             _offsets = offsets;
             _partition = partition;
             _ct = ct;
+            TimeoutPolicy =
+                Policy
+                .Handle<TimeoutException>(_ => !_ct.IsCancellationRequested)
+                .WaitAndRetryForeverAsync(n => TimeSpan.FromMilliseconds((n < 10) ? n * 100 : 1000),
+                    (ex, ts) => Log.Warning("Delaying {ts} due to {exception}", ts, ex.Message));
         }
 
         public virtual Task InitialiseAsync() => Task.FromResult(true);
@@ -76,11 +83,14 @@ namespace SceneSkope.ServiceFabric.EventHubs
             {
                 if (AutomaticallySave)
                 {
-                    using (var tx = StateManager.CreateTransaction())
+                    await TimeoutPolicy.ExecuteAsync(async _ =>
                     {
-                        await SaveOffsetAsync(tx, lastOffset).ConfigureAwait(false);
-                        await tx.CommitAsync().ConfigureAwait(false);
-                    }
+                        using (var tx = StateManager.CreateTransaction())
+                        {
+                            await SaveOffsetAsync(tx, lastOffset).ConfigureAwait(false);
+                            await tx.CommitAsync().ConfigureAwait(false);
+                        }
+                    }, _ct, false).ConfigureAwait(false);
                 }
             }
         }
