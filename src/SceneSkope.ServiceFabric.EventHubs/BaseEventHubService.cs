@@ -108,21 +108,15 @@ namespace SceneSkope.ServiceFabric.EventHubs
         {
             await TryConfigureAsync(cancellationToken).ConfigureAwait(false);
             var partitions = await GetOrCreatePartitionListAsync(cancellationToken).ConfigureAwait(false);
-            using (var cts = new CancellationTokenSource())
-            using (cancellationToken.Register(() =>
+            using (cancellationToken.Register(() => Log.Debug("Service cancellation requested")))
             {
-                Log.Debug("Service cancellation requested");
-                cts.Cancel();
-            }))
-            {
-                var ct = cts.Token;
                 try
                 {
                     var offsets = await StateManager.GetOrAddAsync<IReliableDictionary<string, string>>(OffsetsName).ConfigureAwait(false);
                     var tasks = new Task[partitions.Length];
                     for (var i = 0; i < partitions.Length; i++)
                     {
-                        tasks[i] = ProcessPartitionAsync(partitions[i], offsets, ct);
+                        tasks[i] = ProcessPartitionAsync(partitions[i], offsets, cancellationToken);
                     }
                     await Task.WhenAll(tasks).ConfigureAwait(false);
                 }
