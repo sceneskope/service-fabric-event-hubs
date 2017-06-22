@@ -15,7 +15,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
     {
         public ILogger Log { get; }
         public IReliableStateManager StateManager { get; }
-        public bool AutomaticallySave { get; }
 
         private readonly IReliableDictionary<string, string> _offsets;
         protected readonly string _partition;
@@ -26,11 +25,9 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         protected BaseReadingReceiver(ILogger log, IReliableStateManager stateManager,
         IReliableDictionary<string, string> offsets, string partition,
-        bool automaticallySave,
         CancellationToken ct)
         {
             Log = log.ForContext("partition", partition);
-            AutomaticallySave = automaticallySave;
             StateManager = stateManager;
             _offsets = offsets;
             _partition = partition;
@@ -46,16 +43,11 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         public virtual Task ProcessErrorAsync(Exception error)
         {
-            if (!DontLogException(error))
-            {
-                Log.Error(error, "Error reading {partition}: {exception}", _partition, error.Message);
-            }
+            Log.Error(error, "Error reading {partition}: {exception}", _partition, error.Message);
             return Task.FromResult(true);
         }
 
-        private static bool DontLogException(Exception ex) => (ex is FabricException) || (ex is OperationCanceledException);
-
-        protected abstract Task ProcessEventAsync(EventData @event);
+        protected abstract Task ProcessEventAsync(ITransaction tx, EventData @event);
 
         public async Task ProcessEventsAsync(IEnumerable<EventData> events)
         {
@@ -65,36 +57,27 @@ namespace SceneSkope.ServiceFabric.EventHubs
             }
 
             string lastOffset = null;
-
-            foreach (var @event in events)
+            await TimeoutPolicy.ExecuteAsync(async _ =>
             {
-                try
+                using (var tx = StateManager.CreateTransaction())
                 {
-                    await ProcessEventAsync(@event).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (!DontLogException(ex))
-                {
-                    Log.Warning(ex, "Error processing: {exception}", ex.Message);
-                }
-                lastOffset = @event.SystemProperties.Offset;
-            }
-
-            if (lastOffset != null)
-            {
-                if (AutomaticallySave)
-                {
-                    await TimeoutPolicy.ExecuteAsync(async _ =>
+                    foreach (var @event in events)
                     {
-                        using (var tx = StateManager.CreateTransaction())
+                        try
                         {
-                            await SaveOffsetAsync(tx, lastOffset).ConfigureAwait(false);
-                            await tx.CommitAsync().ConfigureAwait(false);
+                            await ProcessEventAsync(tx, @event).ConfigureAwait(false);
                         }
-                    }, _ct, false).ConfigureAwait(false);
+                        catch (Exception ex) when (!(ex is FabricException))
+                        {
+                            _ct.ThrowIfCancellationRequested();
+                            Log.Warning(ex, "Error processing: {exception}", ex.Message);
+                        }
+                        lastOffset = @event.SystemProperties.Offset;
+                    }
+                    await _offsets.SetAsync(tx, _partition, lastOffset).ConfigureAwait(false);
+                    await tx.CommitAsync().ConfigureAwait(false);
                 }
-            }
+            }, _ct, false).ConfigureAwait(false);
         }
-
-        protected Task SaveOffsetAsync(ITransaction tx, string offset) => _offsets.SetAsync(tx, _partition, offset);
     }
 }
