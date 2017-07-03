@@ -154,7 +154,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
             try
             {
                 var handler = CreateReadingReceiver(Log, StateManager, offsets, partition, ct);
-                await handler.InitialiseAsync().ConfigureAwait(false);
+                await handler.InitialiseAsync(ct).ConfigureAwait(false);
                 receiver.SetReceiveHandler(handler);
                 await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
             }
@@ -171,6 +171,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
             }
         }
 
-        protected abstract BaseReadingReceiver CreateReadingReceiver(ILogger log, IReliableStateManager stateManager, IReliableDictionary<string, string> offsets, string partition, CancellationToken ct);
+        protected abstract IReadingReceiver CreateReadingReceiver(ILogger log, IReliableStateManager stateManager, IReliableDictionary<string, string> offsets, string partition, CancellationToken ct);
     }
 }

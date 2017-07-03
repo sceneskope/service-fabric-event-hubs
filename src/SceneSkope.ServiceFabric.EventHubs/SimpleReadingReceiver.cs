@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.EventHubs;
 using Microsoft.ServiceFabric.Data;
@@ -10,7 +11,7 @@ using Serilog;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {
-    public abstract class SimpleReadingReceiver : IPartitionReceiveHandler
+    public abstract class SimpleReadingReceiver : IReadingReceiver
     {
         public ILogger Log { get; }
 
@@ -26,7 +27,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
             _partition = partition;
         }
 
-        public virtual Task InitialiseAsync() => Task.FromResult(true);
+        public virtual Task InitialiseAsync(CancellationToken ct) => Task.FromResult(true);
 
         public virtual Task ProcessErrorAsync(Exception error)
         {

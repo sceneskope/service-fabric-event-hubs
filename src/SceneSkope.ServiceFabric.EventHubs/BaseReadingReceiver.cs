@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {
-    public abstract class BaseReadingReceiver : IPartitionReceiveHandler
+    public abstract class BaseReadingReceiver : IReadingReceiver
     {
         public ILogger Log { get; }
         public IReliableStateManager StateManager { get; }
@@ -40,7 +40,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
                     (ex, ts) => Log.Warning(ex, "Delaying {ts} due to {exception}", ts, ex.Message));
         }
 
-        public virtual Task InitialiseAsync() => Task.FromResult(true);
+        public virtual Task InitialiseAsync(CancellationToken ct) => Task.FromResult(true);
 
         public virtual Task ProcessErrorAsync(Exception error)
         {
