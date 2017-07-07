@@ -45,15 +45,17 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
             var count = Log.IsEnabled(Serilog.Events.LogEventLevel.Verbose) ? events.Count() : 0;
             Log.Verbose("Got {count} events to process", count);
+            string latestOffset = null;
             foreach (var @event in events)
             {
                 await ProcessEventAsync(@event).ConfigureAwait(false);
+                latestOffset = @event.SystemProperties.Offset;
             }
-            await OnAllEventsProcessedAsync().ConfigureAwait(false);
+            await OnAllEventsProcessedAsync(latestOffset).ConfigureAwait(false);
             Log.Verbose("Processed {count} events", count);
         }
 
-        protected virtual Task OnAllEventsProcessedAsync() => Task.FromResult(true);
+        protected virtual Task OnAllEventsProcessedAsync(string latestOffset) => Task.FromResult(true);
 
         protected Task SaveOffsetAsync(ITransaction tx, string latestOffset) => _offsets.SetAsync(tx, _partition, latestOffset);
     }
