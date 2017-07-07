@@ -1,13 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Azure.EventHubs;
+﻿using Microsoft.Azure.EventHubs;
 using Microsoft.ServiceFabric.Data;
 using Microsoft.ServiceFabric.Data.Collections;
 using Serilog;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {
@@ -50,8 +49,11 @@ namespace SceneSkope.ServiceFabric.EventHubs
             {
                 await ProcessEventAsync(@event).ConfigureAwait(false);
             }
+            await OnAllEventsProcessedAsync().ConfigureAwait(false);
             Log.Verbose("Processed {count} events", count);
         }
+
+        protected virtual Task OnAllEventsProcessedAsync() => Task.FromResult(true);
 
         protected Task SaveOffsetAsync(ITransaction tx, string latestOffset) => _offsets.SetAsync(tx, _partition, latestOffset);
     }
