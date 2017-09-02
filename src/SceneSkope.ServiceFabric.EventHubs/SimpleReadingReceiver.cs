@@ -30,7 +30,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         public virtual Task ProcessErrorAsync(Exception error)
         {
-            Log.Error(error, "Error reading: {exception}", error.Message);
+            Log.Error(error, "Error reading: {Exception}", error.Message);
             return Task.FromResult(true);
         }
 
@@ -44,7 +44,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
             }
 
             var count = Log.IsEnabled(Serilog.Events.LogEventLevel.Verbose) ? events.Count() : 0;
-            Log.Verbose("Got {count} events to process", count);
+            Log.Verbose("Got {Count} events to process", count);
             string latestOffset = null;
             foreach (var @event in events)
             {
@@ -52,7 +52,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 latestOffset = @event.SystemProperties.Offset;
             }
             await OnAllEventsProcessedAsync(latestOffset).ConfigureAwait(false);
-            Log.Verbose("Processed {count} events", count);
+            Log.Verbose("Processed {Count} events", count);
         }
 
         protected virtual Task OnAllEventsProcessedAsync(string latestOffset) => Task.FromResult(true);

@@ -67,7 +67,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         protected async Task<string> RejectConfigurationAsync(string reason, CancellationToken ct)
         {
-            Log.Error("Invalid configuration: {reason}", reason);
+            Log.Error("Invalid configuration: {Reason}", reason);
             await Task.Delay(5000, ct).ConfigureAwait(false);
             throw new InvalidOperationException(reason);
         }
@@ -123,7 +123,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 catch (Exception ex)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    Log.Error(ex, "Event hub service exiting due to {exception}", ex.Message);
+                    Log.Error(ex, "Event hub service exiting due to {Exception}", ex.Message);
                     throw;
                 }
             }
@@ -148,7 +148,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
         private async Task ProcessPartitionAsync(string partition, IReliableDictionary<string, string> offsets, CancellationToken ct)
         {
             var offset = await ReadOffsetAsync(partition, offsets).ConfigureAwait(false);
-            Log.Information("Process partition {partition} with offset {offset}", partition, offset);
+            Log.Information("Process partition {Partition} with offset {Offset}", partition, offset);
             var offsetInclusive = offset == PartitionReceiver.StartOfStream;
             var receiver = _client.CreateEpochReceiver(_consumerGroup, partition, offset, offsetInclusive, DateTime.UtcNow.Ticks);
             try
@@ -161,12 +161,12 @@ namespace SceneSkope.ServiceFabric.EventHubs
             catch (Exception ex)
             {
                 ct.ThrowIfCancellationRequested();
-                Log.Error(ex, "Error processing partition: {exception}", ex.Message);
+                Log.Error(ex, "Error processing partition: {Exception}", ex.Message);
                 throw;
             }
             finally
             {
-                Log.Information("Finished processing partition {partition}", partition);
+                Log.Information("Finished processing partition {Partition}", partition);
                 await receiver.CloseAsync().ConfigureAwait(false);
             }
         }

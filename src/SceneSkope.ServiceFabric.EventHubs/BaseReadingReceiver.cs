@@ -37,14 +37,14 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 Policy
                 .Handle<TimeoutException>(_ => !_ct.IsCancellationRequested)
                 .WaitAndRetryForeverAsync(n => TimeSpan.FromMilliseconds((n < 10) ? n * 100 : 1000),
-                    (ex, ts) => Log.Warning(ex, "Delaying {ts} due to {exception}", ts, ex.Message));
+                    (ex, ts) => Log.Warning(ex, "Delaying {Ts} due to {Exception}", ts, ex.Message));
         }
 
         public virtual Task InitialiseAsync(CancellationToken ct) => Task.FromResult(true);
 
         public virtual Task ProcessErrorAsync(Exception error)
         {
-            Log.Error(error, "Error reading: {exception}", error.Message);
+            Log.Error(error, "Error reading: {Exception}", error.Message);
             return Task.FromResult(true);
         }
 
@@ -61,7 +61,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
             await TimeoutPolicy.ExecuteAsync(async _ =>
             {
                 var count = events.Count();
-                Log.Verbose("Got {count} events to process", count);
+                Log.Verbose("Got {Count} events to process", count);
                 using (var tx = StateManager.CreateTransaction())
                 {
                     foreach (var @event in events)
@@ -72,7 +72,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
                     await _offsets.SetAsync(tx, _partition, lastOffset).ConfigureAwait(false);
                     await tx.CommitAsync().ConfigureAwait(false);
                 }
-                Log.Verbose("Processed {count} events", count);
+                Log.Verbose("Processed {Count} events", count);
             }, _ct, false).ConfigureAwait(false);
         }
     }
