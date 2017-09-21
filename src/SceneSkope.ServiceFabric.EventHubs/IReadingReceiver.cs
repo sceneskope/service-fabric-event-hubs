@@ -11,5 +11,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
     public interface IReadingReceiver : IPartitionReceiveHandler
     {
         Task InitialiseAsync(CancellationToken ct);
+        CancellationToken ErrorToken { get; }
     }
 }

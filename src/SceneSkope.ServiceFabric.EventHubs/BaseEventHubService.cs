@@ -147,27 +147,40 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         private async Task ProcessPartitionAsync(string partition, IReliableDictionary<string, string> offsets, CancellationToken ct)
         {
-            var offset = await ReadOffsetAsync(partition, offsets).ConfigureAwait(false);
-            Log.Information("Process partition {Partition} with offset {Offset}", partition, offset);
-            var offsetInclusive = offset == PartitionReceiver.StartOfStream;
-            var receiver = _client.CreateEpochReceiver(_consumerGroup, partition, offset, offsetInclusive, DateTime.UtcNow.Ticks);
             try
             {
-                var handler = CreateReadingReceiver(Log, StateManager, offsets, partition, ct);
-                await handler.InitialiseAsync(ct).ConfigureAwait(false);
-                receiver.SetReceiveHandler(handler);
-                await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                ct.ThrowIfCancellationRequested();
-                Log.Error(ex, "Error processing partition: {Exception}", ex.Message);
-                throw;
+                var offset = await ReadOffsetAsync(partition, offsets).ConfigureAwait(false);
+                Log.Information("Process partition {Partition} with offset {Offset}", partition, offset);
+                var offsetInclusive = offset == PartitionReceiver.StartOfStream;
+                while (true)
+                {
+                    var receiver = _client.CreateEpochReceiver(_consumerGroup, partition, offset, offsetInclusive, DateTime.UtcNow.Ticks);
+                    try
+                    {
+                        var handler = CreateReadingReceiver(Log, StateManager, offsets, partition, ct);
+                        await handler.InitialiseAsync(ct).ConfigureAwait(false);
+                        receiver.SetReceiveHandler(handler);
+                        receiver.RetryPolicy = RetryPolicy.NoRetry;
+                        using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct, handler.ErrorToken))
+                        {
+                            await Task.Delay(Timeout.Infinite, cts.Token).ConfigureAwait(false);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        Log.Error(ex, "Error processing partition: {Exception}", ex.Message);
+                    }
+                    finally
+                    {
+                        Log.Information("Finished processing partition iteration {Partition}", partition);
+                        await receiver.CloseAsync().ConfigureAwait(false);
+                    }
+                }
             }
             finally
             {
                 Log.Information("Finished processing partition {Partition}", partition);
-                await receiver.CloseAsync().ConfigureAwait(false);
             }
         }
 

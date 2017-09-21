@@ -16,6 +16,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         private readonly IReliableDictionary<string, string> _offsets;
         protected readonly string _partition;
+        private readonly CancellationTokenSource _errorCts;
 
         public virtual int MaxBatchSize => 100;
 
@@ -24,13 +25,17 @@ namespace SceneSkope.ServiceFabric.EventHubs
             Log = log.ForContext("partition", partition);
             _offsets = offsets;
             _partition = partition;
+            _errorCts = new CancellationTokenSource();
         }
+
+        public CancellationToken ErrorToken => _errorCts.Token;
 
         public virtual Task InitialiseAsync(CancellationToken ct) => Task.FromResult(true);
 
         public virtual Task ProcessErrorAsync(Exception error)
         {
             Log.Error(error, "Error reading: {Exception}", error.Message);
+            _errorCts.Cancel();
             return Task.FromResult(true);
         }
 
