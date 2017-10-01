@@ -23,7 +23,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
         {
         }
 
-        protected BaseEventHubService(StatefulServiceContext context, ILogger logger, IReliableStateManagerReplica stateManager)
+        protected BaseEventHubService(StatefulServiceContext context, ILogger logger, IReliableStateManagerReplica2 stateManager)
             : base(context, stateManager, logger)
         {
         }
