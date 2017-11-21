@@ -6,14 +6,9 @@
 
   <ItemGroup>
     <PackageReference Include="Polly" Version="5.5.0" />
-    <PackageReference Include="ServiceFabric.Serilog" Version="3.2.0" />
-    <PackageReference Include="ServiceFabric.Utilities" Version="3.2.0" />
+    <PackageReference Include="ServiceFabric.Serilog" Version="3.2.1" />
+    <PackageReference Include="ServiceFabric.Utilities" Version="3.2.1" />
     <PackageReference Include="Microsoft.Azure.EventHubs" Version="1.0.3" />
   </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Update="SourceLink.Create.CommandLine" Version="2.5.0" />
-  </ItemGroup>
-
 
 </Project>
