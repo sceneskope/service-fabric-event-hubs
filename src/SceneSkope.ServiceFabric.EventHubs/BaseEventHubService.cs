@@ -1,13 +1,13 @@
-﻿using Microsoft.Azure.EventHubs;
+﻿using System;
+using System.Fabric;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Azure.EventHubs;
 using Microsoft.ServiceFabric.Data;
 using Microsoft.ServiceFabric.Data.Collections;
 using Serilog;
 using ServiceFabric.Serilog;
 using ServiceFabric.Utilities;
-using System;
-using System.Fabric;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {
@@ -15,6 +15,10 @@ namespace SceneSkope.ServiceFabric.EventHubs
     {
         private const string PartitionsName = "partitions";
         private const string OffsetsName = "offsets";
+        private EventHubClient _client;
+        private string _consumerGroup;
+
+        public string ConfigurationSectionName { get; set; } = "EventHubSource";
 
         protected string DefaultPosition { get; set; } = PartitionReceiver.EndOfStream;
 
@@ -65,44 +69,14 @@ namespace SceneSkope.ServiceFabric.EventHubs
             return ourPartitions;
         }
 
-        protected async Task<string> RejectConfigurationAsync(string reason, CancellationToken ct)
-        {
-            Log.Error("Invalid configuration: {Reason}", reason);
-            await Task.Delay(5000, ct).ConfigureAwait(false);
-            throw new InvalidOperationException(reason);
-        }
-
-        protected Task<string> TryReadConfigurationAsync(FabricConfigurationProvider config, string name, CancellationToken ct)
-        {
-            var value = config.TryGetValue(name);
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return RejectConfigurationAsync($"No configuration for {name}", ct);
-            }
-            else
-            {
-                return Task.FromResult(value);
-            }
-        }
-
         protected virtual async Task TryConfigureAsync(CancellationToken ct)
         {
-            var config = new FabricConfigurationProvider("EventHubSource");
-            if (!config.HasConfiguration)
-            {
-                await RejectConfigurationAsync("No event hub source configuration", ct).ConfigureAwait(false);
-            }
-            var host = await TryReadConfigurationAsync(config, "Host", ct).ConfigureAwait(false);
-            var policy = await TryReadConfigurationAsync(config, "Policy", ct).ConfigureAwait(false);
-            var key = await TryReadConfigurationAsync(config, "Key", ct).ConfigureAwait(false);
-            var eventHub = await TryReadConfigurationAsync(config, "EventHub", ct).ConfigureAwait(false);
-            _consumerGroup = await TryReadConfigurationAsync(config, "ConsumerGroup", ct).ConfigureAwait(false);
-            var builder = new EventHubsConnectionStringBuilder(new Uri($"amqps://{host}"), eventHub, policy, key);
-            _client = EventHubClient.CreateFromConnectionString(builder.ToString());
-        }
+            void onFailure(string msg) => Log.Error("Error configuring: {Msg}", msg);
+            _client = await EventHubConfiguration.GetEventHubClientAsync(ConfigurationSectionName, onFailure, ct).ConfigureAwait(false);
 
-        private EventHubClient _client;
-        private string _consumerGroup;
+            var configuration = new FabricConfigurationProvider(ConfigurationSectionName);
+            _consumerGroup = await configuration.TryReadConfigurationAsync("ConsumerGroup", onFailure, ct).ConfigureAwait(false);
+        }
 
         protected sealed override async Task RunAsync(CancellationToken cancellationToken)
         {
@@ -147,43 +121,31 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         private async Task ProcessPartitionAsync(string partition, IReliableDictionary<string, string> offsets, CancellationToken ct)
         {
+            var offset = await ReadOffsetAsync(partition, offsets).ConfigureAwait(false);
+            Log.Information("Process partition {Partition} with offset {Offset}", partition, offset);
+            var offsetInclusive = offset == PartitionReceiver.StartOfStream;
+            var receiver = _client.CreateEpochReceiver(_consumerGroup, partition, offset, offsetInclusive, DateTime.UtcNow.Ticks);
             try
             {
-                var offset = await ReadOffsetAsync(partition, offsets).ConfigureAwait(false);
-                Log.Information("Process partition {Partition} with offset {Offset}", partition, offset);
-                var offsetInclusive = offset == PartitionReceiver.StartOfStream;
-                while (true)
-                {
-                    var receiver = _client.CreateEpochReceiver(_consumerGroup, partition, offset, offsetInclusive, DateTime.UtcNow.Ticks);
-                    try
-                    {
-                        var handler = CreateReadingReceiver(Log, StateManager, offsets, partition, ct);
-                        await handler.InitialiseAsync(ct).ConfigureAwait(false);
-                        receiver.SetReceiveHandler(handler);
-                        receiver.RetryPolicy = RetryPolicy.NoRetry;
-                        using (var cts = CancellationTokenSource.CreateLinkedTokenSource(ct, handler.ErrorToken))
-                        {
-                            await Task.Delay(Timeout.Infinite, cts.Token).ConfigureAwait(false);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        Log.Error(ex, "Error processing partition: {Exception}", ex.Message);
-                    }
-                    finally
-                    {
-                        Log.Information("Finished processing partition iteration {Partition}", partition);
-                        await receiver.CloseAsync().ConfigureAwait(false);
-                    }
-                }
+                var handler = CreateReadingReceiver(Log, StateManager, offsets, partition, ct);
+                await handler.InitialiseAsync().ConfigureAwait(false);
+                receiver.SetReceiveHandler(handler);
+                receiver.RetryPolicy = RetryPolicy.NoRetry;
+                await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                ct.ThrowIfCancellationRequested();
+                Log.Error(ex, "Error processing partition: {Exception}", ex.Message);
             }
             finally
             {
-                Log.Information("Finished processing partition {Partition}", partition);
+                Log.Information("Finished processing partition iteration {Partition}", partition);
+                await receiver.CloseAsync().ConfigureAwait(false);
             }
         }
 
-        protected abstract IReadingReceiver CreateReadingReceiver(ILogger log, IReliableStateManager stateManager, IReliableDictionary<string, string> offsets, string partition, CancellationToken ct);
+        protected abstract IReadingReceiver CreateReadingReceiver(ILogger log, IReliableStateManager stateManager,
+            IReliableDictionary<string, string> offsets, string partition, CancellationToken ct);
     }
 }
