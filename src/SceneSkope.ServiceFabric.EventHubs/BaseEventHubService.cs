@@ -80,7 +80,16 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         protected sealed override async Task RunAsync(CancellationToken cancellationToken)
         {
-            await TryConfigureAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await TryConfigureAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Error configuring event hubs: {Exception}", ex.Message);
+                throw;
+            }
+
             var partitions = await GetOrCreatePartitionListAsync(cancellationToken).ConfigureAwait(false);
             using (cancellationToken.Register(() => Log.Debug("Service cancellation requested")))
             {
