@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.EventHubs;
@@ -24,8 +21,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 await configuration.TryReadConfigurationAsync("SharedAccessKeyName", onFailure, ct).ConfigureAwait(false),
                 await configuration.TryReadConfigurationAsync("SharedAccessKey", onFailure, ct).ConfigureAwait(false)
             );
-            var client = EventHubClient.CreateFromConnectionString(inputConnectionString.ToString());
-            return client;
+            return EventHubClient.CreateFromConnectionString(inputConnectionString.ToString());
         }
     }
 }

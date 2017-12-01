@@ -1,14 +1,13 @@
-﻿using Microsoft.Azure.EventHubs;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Azure.EventHubs;
 using Microsoft.ServiceFabric.Data;
 using Microsoft.ServiceFabric.Data.Collections;
 using Polly;
 using Serilog;
-using System;
-using System.Collections.Generic;
-using System.Fabric;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {
@@ -20,7 +19,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
         private readonly IReliableDictionary<string, string> _offsets;
         protected readonly string _partition;
         protected readonly CancellationToken _ct;
-        private readonly CancellationTokenSource _errorCts;
 
         public virtual int MaxBatchSize => 100;
         protected Policy TimeoutPolicy { get; }
@@ -34,7 +32,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
             _offsets = offsets;
             _partition = partition;
             _ct = ct;
-            _errorCts = new CancellationTokenSource();
             TimeoutPolicy =
                 Policy
                 .Handle<TimeoutException>(_ => !_ct.IsCancellationRequested)
@@ -42,15 +39,12 @@ namespace SceneSkope.ServiceFabric.EventHubs
                     (ex, ts) => Log.Warning(ex, "Delaying {Ts} due to {Exception}", ts, ex.Message));
         }
 
-        public CancellationToken ErrorToken => _errorCts.Token;
-
-        public virtual Task InitialiseAsync(CancellationToken ct) => Task.FromResult(true);
+        public virtual Task InitialiseAsync() => Task.CompletedTask;
 
         public virtual Task ProcessErrorAsync(Exception error)
         {
             Log.Error(error, "Error reading: {Exception}", error.Message);
-            _errorCts.Cancel();
-            return Task.FromResult(true);
+            return Task.CompletedTask;
         }
 
         protected abstract Task ProcessEventAsync(ITransaction tx, EventData @event);

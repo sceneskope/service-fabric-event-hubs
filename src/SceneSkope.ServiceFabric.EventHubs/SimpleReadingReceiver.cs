@@ -1,12 +1,12 @@
-﻿using Microsoft.Azure.EventHubs;
-using Microsoft.ServiceFabric.Data;
-using Microsoft.ServiceFabric.Data.Collections;
-using Serilog;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Azure.EventHubs;
+using Microsoft.ServiceFabric.Data;
+using Microsoft.ServiceFabric.Data.Collections;
+using Serilog;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {
@@ -16,27 +16,25 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         private readonly IReliableDictionary<string, string> _offsets;
         protected readonly string _partition;
-        private readonly CancellationTokenSource _errorCts;
 
         public virtual int MaxBatchSize => 100;
 
-        protected SimpleReadingReceiver(ILogger log, IReliableDictionary<string, string> offsets, string partition)
+        public CancellationToken CancellationToken { get; }
+
+        protected SimpleReadingReceiver(ILogger log, IReliableDictionary<string, string> offsets, string partition, CancellationToken ct)
         {
             Log = log.ForContext("partition", partition);
             _offsets = offsets;
             _partition = partition;
-            _errorCts = new CancellationTokenSource();
+            CancellationToken = ct;
         }
 
-        public CancellationToken ErrorToken => _errorCts.Token;
-
-        public virtual Task InitialiseAsync(CancellationToken ct) => Task.FromResult(true);
+        public virtual Task InitialiseAsync() => Task.CompletedTask;
 
         public virtual Task ProcessErrorAsync(Exception error)
         {
             Log.Error(error, "Error reading: {Exception}", error.Message);
-            _errorCts.Cancel();
-            return Task.FromResult(true);
+            return Task.CompletedTask;
         }
 
         protected abstract Task ProcessEventAsync(EventData @event);
@@ -60,7 +58,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
             Log.Verbose("Processed {Count} events", count);
         }
 
-        protected virtual Task OnAllEventsProcessedAsync(string latestOffset) => Task.FromResult(true);
+        protected virtual Task OnAllEventsProcessedAsync(string latestOffset) => Task.CompletedTask;
 
         protected Task SaveOffsetAsync(ITransaction tx, string latestOffset) => _offsets.SetAsync(tx, _partition, latestOffset);
     }
