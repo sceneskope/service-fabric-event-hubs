@@ -90,6 +90,11 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 throw;
             }
 
+            await ControlledRunner.RunAsync(Log, InternalRunAsync, cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task InternalRunAsync(CancellationToken cancellationToken)
+        {
             var partitions = await GetOrCreatePartitionListAsync(cancellationToken).ConfigureAwait(false);
             using (cancellationToken.Register(() => Log.Debug("Service cancellation requested")))
             {
