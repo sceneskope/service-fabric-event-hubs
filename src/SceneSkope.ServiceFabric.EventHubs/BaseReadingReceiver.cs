@@ -18,7 +18,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         private readonly IReliableDictionary<string, string> _offsets;
         protected readonly string _partition;
-        protected readonly CancellationToken _ct;
+        protected CancellationToken CancellationToken { get; }
 
         public virtual int MaxBatchSize => 100;
         protected Policy TimeoutPolicy { get; }
@@ -31,10 +31,12 @@ namespace SceneSkope.ServiceFabric.EventHubs
             StateManager = stateManager;
             _offsets = offsets;
             _partition = partition;
-            _ct = ct;
+            CancellationToken = ct;
             TimeoutPolicy =
                 Policy
-                .Handle<TimeoutException>(_ => !_ct.IsCancellationRequested)
+#pragma warning disable RCS1163 // Unused parameter.
+                .Handle<TimeoutException>(_ => !CancellationToken.IsCancellationRequested)
+#pragma warning restore RCS1163 // Unused parameter.
                 .WaitAndRetryForeverAsync(n => TimeSpan.FromMilliseconds((n < 10) ? n * 100 : 1000),
                     (ex, ts) => Log.Warning(ex, "Delaying {Ts} due to {Exception}", ts, ex.Message));
         }
@@ -57,7 +59,9 @@ namespace SceneSkope.ServiceFabric.EventHubs
             }
 
             string lastOffset = null;
+#pragma warning disable RCS1163 // Unused parameter.
             await TimeoutPolicy.ExecuteAsync(async _ =>
+#pragma warning restore RCS1163 // Unused parameter.
             {
                 var count = events.Count();
                 Log.Verbose("Got {Count} events to process", count);
@@ -72,7 +76,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
                     await tx.CommitAsync().ConfigureAwait(false);
                 }
                 Log.Verbose("Processed {Count} events", count);
-            }, _ct, false).ConfigureAwait(false);
+            }, CancellationToken, false).ConfigureAwait(false);
         }
     }
 }
