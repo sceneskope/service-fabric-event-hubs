@@ -11,11 +11,11 @@
     <PackageLicenseUrl>https://opensource.org/licenses/MIT</PackageLicenseUrl>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <LangVersion>latest</LangVersion>
-    <VersionPrefix>2.1.0</VersionPrefix>
+    <VersionPrefix>2.2.0</VersionPrefix>
     <DebugType>embedded</DebugType>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Roslynator.Analyzers" Version="1.6.0">
+    <PackageReference Include="Roslynator.Analyzers" Version="1.7.0-rc">
       <PrivateAssets>All</PrivateAssets>
     </PackageReference>
   </ItemGroup>
