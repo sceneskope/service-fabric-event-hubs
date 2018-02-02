@@ -1,8 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net461</TargetFramework>
-    <PlatformTarget>x64</PlatformTarget>
-    <Copyright>SceneSkope © 2016, 2017</Copyright>
+    <Copyright>SceneSkope © 2016, 2017, 2018</Copyright>
     <Authors>nick.randell@sceneskope.com</Authors>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IsTestProject>$(MSBuildProjectName.Contains('Test'))</IsTestProject>
@@ -11,15 +9,17 @@
     <PackageLicenseUrl>https://opensource.org/licenses/MIT</PackageLicenseUrl>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <LangVersion>latest</LangVersion>
-    <VersionPrefix>2.2.0</VersionPrefix>
+    <VersionPrefix>3.0.0</VersionPrefix>
     <DebugType>embedded</DebugType>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Roslynator.Analyzers" Version="1.7.0-rc">
-      <PrivateAssets>All</PrivateAssets>
-    </PackageReference>
+  <PropertyGroup Condition="'$(IsTestProject)' != 'true' ">
+    <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
+    <RuntimeIdentifier>win7-x64</RuntimeIdentifier>
+  </PropertyGroup>
+    <ItemGroup>
+    <PackageReference Include="Roslynator.Analyzers" Version="1.7.0" PrivateAssets="All" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsTestProject)' != 'true' and '$(IsPackable)' != 'false'">
-    <PackageReference Include="SourceLink.Create.CommandLine" Version="2.7.3" PrivateAssets="All" />
+    <PackageReference Include="SourceLink.Create.CommandLine" Version="2.7.6" PrivateAssets="All" />
   </ItemGroup>
 </Project>
