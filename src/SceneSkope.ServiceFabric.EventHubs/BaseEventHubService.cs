@@ -21,6 +21,8 @@ namespace SceneSkope.ServiceFabric.EventHubs
         public string ConfigurationSectionName { get; set; } = "EventHubSource";
 
         protected string DefaultPosition { get; set; } = PartitionReceiver.EndOfStream;
+        protected TimeSpan? DefaultAge { get; set; }
+        protected bool UseEpochReceiver { get; set; } = true;
 
         protected BaseEventHubService(StatefulServiceContext context, ILogger logger)
             : base(context, logger)
@@ -128,7 +130,63 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 }
                 else
                 {
-                    return DefaultPosition;
+                    return null;
+                }
+            }
+        }
+
+        private PartitionReceiver CreateReceiver(string partition, string offset)
+        {
+            var epoch = DateTime.UtcNow.Ticks;
+            if (string.IsNullOrWhiteSpace(offset))
+            {
+                if (DefaultAge.HasValue)
+                {
+                    var timestamp = DateTime.UtcNow.Subtract(DefaultAge.Value);
+                    if (UseEpochReceiver)
+                    {
+                        Log.Information("Creating epoch {Epoch} receiver for {Consumer}#{Partition} from time {Timestamp}",
+                            epoch, _consumerGroup, partition, timestamp);
+                        return _client.CreateEpochReceiver(_consumerGroup, partition, timestamp, epoch);
+                    }
+                    else
+                    {
+                        Log.Information("Creating receiver for {Consumer}#{Partition} from time {Timestamp}",
+                            _consumerGroup, partition, timestamp);
+                        return _client.CreateReceiver(_consumerGroup, partition, timestamp);
+                    }
+                }
+                else
+                {
+                    var offsetToUse = string.IsNullOrWhiteSpace(offset) ? DefaultPosition : offset;
+                    var offsetInclusive = offset == PartitionReceiver.StartOfStream;
+                    if (UseEpochReceiver)
+                    {
+                        Log.Information("Creating epoch {Epoch} receiver for {Consumer}#{Partition} from offset {Offset} {Inclusive}",
+                            epoch, _consumerGroup, partition, offsetToUse, offsetInclusive);
+                        return _client.CreateEpochReceiver(_consumerGroup, partition, offsetToUse, offsetInclusive, DateTime.UtcNow.Ticks);
+                    }
+                    else
+                    {
+                        Log.Information("Creating receiver for {Consumer}#{Partition} from offset {Offset} {Inclusive}",
+                            _consumerGroup, partition, offsetToUse, offsetInclusive);
+                        return _client.CreateReceiver(_consumerGroup, partition, offsetToUse, offsetInclusive);
+                    }
+                }
+            }
+            else
+            {
+                if (UseEpochReceiver)
+                {
+                    Log.Information("Creating epoch {Epoch} receiver for {Consumer}#{Partition} from saved offset {Offset}",
+                        epoch, _consumerGroup, partition, offset);
+                    return _client.CreateEpochReceiver(_consumerGroup, partition, offset, false, DateTime.UtcNow.Ticks);
+                }
+                else
+                {
+                    Log.Information("Creating receiver for {Consumer}#{Partition} from saved offset {Offset}",
+                        _consumerGroup, partition, offset);
+                    return _client.CreateReceiver(_consumerGroup, partition, offset, false);
                 }
             }
         }
@@ -136,9 +194,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
         private async Task ProcessPartitionAsync(string partition, IReliableDictionary<string, string> offsets, CancellationToken ct)
         {
             var offset = await ReadOffsetAsync(partition, offsets).ConfigureAwait(false);
-            Log.Information("Process partition {Partition} with offset {Offset}", partition, offset);
-            var offsetInclusive = offset == PartitionReceiver.StartOfStream;
-            var receiver = _client.CreateEpochReceiver(_consumerGroup, partition, offset, offsetInclusive, DateTime.UtcNow.Ticks);
+            var receiver = CreateReceiver(partition, offset);
             try
             {
                 var handler = CreateReadingReceiver(Log, StateManager, offsets, partition, ct);
