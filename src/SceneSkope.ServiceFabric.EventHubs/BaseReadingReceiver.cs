@@ -64,7 +64,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
 #pragma warning restore RCS1163 // Unused parameter.
             {
                 var count = events.Count();
-                Log.Verbose("Got {Count} events to process", count);
                 using (var tx = StateManager.CreateTransaction())
                 {
                     foreach (var @event in events)
@@ -75,7 +74,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
                     await _offsets.SetAsync(tx, _partition, lastOffset).ConfigureAwait(false);
                     await tx.CommitAsync().ConfigureAwait(false);
                 }
-                Log.Verbose("Processed {Count} events", count);
             }, CancellationToken, false).ConfigureAwait(false);
         }
     }

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.EventHubs;
@@ -46,8 +45,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 return;
             }
 
-            var count = Log.IsEnabled(Serilog.Events.LogEventLevel.Verbose) ? events.Count() : 0;
-            Log.Verbose("Got {Count} events to process", count);
             string latestOffset = null;
             foreach (var @event in events)
             {
@@ -55,7 +52,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 latestOffset = @event.SystemProperties.Offset;
             }
             await OnAllEventsProcessedAsync(latestOffset).ConfigureAwait(false);
-            Log.Verbose("Processed {Count} events", count);
         }
 
         protected virtual Task OnAllEventsProcessedAsync(string latestOffset) => Task.CompletedTask;
