@@ -16,7 +16,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
         private readonly IReliableDictionary<string, string> _offsets;
         protected readonly string _partition;
 
-        public virtual int MaxBatchSize => 100;
+        public int MaxBatchSize { get; set; } = 100;
 
         public CancellationToken CancellationToken { get; }
 

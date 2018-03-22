@@ -20,7 +20,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
         protected readonly string _partition;
         protected CancellationToken CancellationToken { get; }
 
-        public virtual int MaxBatchSize => 100;
+        public int MaxBatchSize { get; set; } = 100;
         protected Policy TimeoutPolicy { get; }
 
         protected BaseReadingReceiver(ILogger log, IReliableStateManager stateManager,

@@ -20,7 +20,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         public string ConfigurationSectionName { get; set; } = "EventHubSource";
 
-        protected string DefaultPosition { get; set; } = PartitionReceiver.EndOfStream;
+        protected EventPosition DefaultPosition { get; set; } = EventPosition.FromEnd();
         protected TimeSpan? DefaultAge { get; set; }
         protected bool UseEpochReceiver { get; set; } = true;
 
@@ -143,50 +143,51 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 if (DefaultAge.HasValue)
                 {
                     var timestamp = DateTime.UtcNow.Subtract(DefaultAge.Value);
+                    var position = EventPosition.FromEnqueuedTime(timestamp);
                     if (UseEpochReceiver)
                     {
                         Log.Information("Creating epoch {Epoch} receiver for {Consumer}#{Partition} from time {Timestamp}",
                             epoch, _consumerGroup, partition, timestamp);
-                        return _client.CreateEpochReceiver(_consumerGroup, partition, timestamp, epoch);
+                        return _client.CreateEpochReceiver(_consumerGroup, partition, position, epoch);
                     }
                     else
                     {
                         Log.Information("Creating receiver for {Consumer}#{Partition} from time {Timestamp}",
                             _consumerGroup, partition, timestamp);
-                        return _client.CreateReceiver(_consumerGroup, partition, timestamp);
+                        return _client.CreateReceiver(_consumerGroup, partition, position);
                     }
                 }
                 else
                 {
-                    var offsetToUse = string.IsNullOrWhiteSpace(offset) ? DefaultPosition : offset;
-                    var offsetInclusive = offset == PartitionReceiver.StartOfStream;
+                    var position = DefaultPosition;
                     if (UseEpochReceiver)
                     {
-                        Log.Information("Creating epoch {Epoch} receiver for {Consumer}#{Partition} from offset {Offset} {Inclusive}",
-                            epoch, _consumerGroup, partition, offsetToUse, offsetInclusive);
-                        return _client.CreateEpochReceiver(_consumerGroup, partition, offsetToUse, offsetInclusive, DateTime.UtcNow.Ticks);
+                        Log.Information("Creating epoch {Epoch} receiver for {Consumer}#{Partition} from position {Position}",
+                            epoch, _consumerGroup, partition, position);
+                        return _client.CreateEpochReceiver(_consumerGroup, partition, position, epoch);
                     }
                     else
                     {
-                        Log.Information("Creating receiver for {Consumer}#{Partition} from offset {Offset} {Inclusive}",
-                            _consumerGroup, partition, offsetToUse, offsetInclusive);
-                        return _client.CreateReceiver(_consumerGroup, partition, offsetToUse, offsetInclusive);
+                        Log.Information("Creating receiver for {Consumer}#{Partition} from offset {Position}",
+                            _consumerGroup, partition, position);
+                        return _client.CreateReceiver(_consumerGroup, partition, position);
                     }
                 }
             }
             else
             {
+                var position = EventPosition.FromOffset(offset);
                 if (UseEpochReceiver)
                 {
                     Log.Information("Creating epoch {Epoch} receiver for {Consumer}#{Partition} from saved offset {Offset}",
                         epoch, _consumerGroup, partition, offset);
-                    return _client.CreateEpochReceiver(_consumerGroup, partition, offset, false, DateTime.UtcNow.Ticks);
+                    return _client.CreateEpochReceiver(_consumerGroup, partition, position, epoch);
                 }
                 else
                 {
                     Log.Information("Creating receiver for {Consumer}#{Partition} from saved offset {Offset}",
                         _consumerGroup, partition, offset);
-                    return _client.CreateReceiver(_consumerGroup, partition, offset, false);
+                    return _client.CreateReceiver(_consumerGroup, partition, position);
                 }
             }
         }
