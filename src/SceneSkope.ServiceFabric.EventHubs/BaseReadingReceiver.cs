@@ -23,12 +23,16 @@ namespace SceneSkope.ServiceFabric.EventHubs
         public int MaxBatchSize { get; set; } = 100;
         protected Policy TimeoutPolicy { get; }
 
+        public PartitionReceiver Receiver { get; }
+
         protected BaseReadingReceiver(ILogger log, IReliableStateManager stateManager,
+            PartitionReceiver receiver,
         IReliableDictionary<string, string> offsets, string partition,
         CancellationToken ct)
         {
             Log = log.ForContext("partition", partition);
             StateManager = stateManager;
+            Receiver = receiver;
             _offsets = offsets;
             _partition = partition;
             CancellationToken = ct;
@@ -46,7 +50,14 @@ namespace SceneSkope.ServiceFabric.EventHubs
         public virtual Task ProcessErrorAsync(Exception error)
         {
             Log.Error(error, "Error reading: {Exception}", error.Message);
-            return Task.CompletedTask;
+            if (error is ReceiverDisconnectedException)
+            {
+                return Receiver.CloseAsync();
+            }
+            else
+            {
+                return Task.CompletedTask;
+            }
         }
 
         protected abstract Task ProcessEventAsync(ITransaction tx, EventData @event);

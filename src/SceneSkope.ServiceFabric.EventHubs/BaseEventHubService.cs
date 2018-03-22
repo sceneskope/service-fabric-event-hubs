@@ -195,28 +195,31 @@ namespace SceneSkope.ServiceFabric.EventHubs
         private async Task ProcessPartitionAsync(string partition, IReliableDictionary<string, string> offsets, CancellationToken ct)
         {
             var offset = await ReadOffsetAsync(partition, offsets).ConfigureAwait(false);
-            var receiver = CreateReceiver(partition, offset);
-            try
+            while (!ct.IsCancellationRequested)
             {
-                var handler = CreateReadingReceiver(Log, StateManager, offsets, partition, ct);
-                await handler.InitialiseAsync().ConfigureAwait(false);
-                receiver.SetReceiveHandler(handler);
+                var receiver = CreateReceiver(partition, offset);
                 receiver.RetryPolicy = RetryPolicy.NoRetry;
-                await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                ct.ThrowIfCancellationRequested();
-                Log.Error(ex, "Error processing partition: {Exception}", ex.Message);
-            }
-            finally
-            {
-                Log.Information("Finished processing partition iteration {Partition}", partition);
-                await receiver.CloseAsync().ConfigureAwait(false);
+                try
+                {
+                    var handler = CreateReadingReceiver(Log, StateManager, receiver, offsets, partition, ct);
+                    await handler.InitialiseAsync().ConfigureAwait(false);
+                    receiver.SetReceiveHandler(handler);
+                    await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Log.Error(ex, "Error processing partition: {Exception}", ex.Message);
+                }
+                finally
+                {
+                    Log.Information("Finished processing partition iteration {Partition}", partition);
+                    await receiver.CloseAsync().ConfigureAwait(false);
+                }
             }
         }
 
         protected abstract IReadingReceiver CreateReadingReceiver(ILogger log, IReliableStateManager stateManager,
-            IReliableDictionary<string, string> offsets, string partition, CancellationToken ct);
+            PartitionReceiver receiver, IReliableDictionary<string, string> offsets, string partition, CancellationToken ct);
     }
 }
