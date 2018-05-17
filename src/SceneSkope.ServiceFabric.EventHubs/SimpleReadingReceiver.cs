@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.EventHubs;
@@ -17,16 +16,19 @@ namespace SceneSkope.ServiceFabric.EventHubs
         private readonly IReliableDictionary<string, string> _offsets;
         protected readonly string _partition;
 
-        public virtual int MaxBatchSize => 100;
+        public int MaxBatchSize { get; set; } = 100;
 
-        public CancellationToken CancellationToken { get; }
+        public PartitionReceiver Receiver { get; }
 
-        protected SimpleReadingReceiver(ILogger log, IReliableDictionary<string, string> offsets, string partition, CancellationToken ct)
+        public CancellationTokenSource TokenSource { get; }
+
+        protected SimpleReadingReceiver(ILogger log, PartitionReceiver receiver, IReliableDictionary<string, string> offsets, string partition, CancellationToken ct)
         {
-            Log = log.ForContext("partition", partition);
+            Log = log;
+            Receiver = receiver;
             _offsets = offsets;
             _partition = partition;
-            CancellationToken = ct;
+            TokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
         }
 
         public virtual Task InitialiseAsync() => Task.CompletedTask;
@@ -34,6 +36,15 @@ namespace SceneSkope.ServiceFabric.EventHubs
         public virtual Task ProcessErrorAsync(Exception error)
         {
             Log.Error(error, "Error reading: {Exception}", error.Message);
+            switch (error)
+            {
+                case ReceiverDisconnectedException _:
+                case OperationCanceledException _:
+                case EventHubsException _:
+                    Log.Information("Cancelling the receiver");
+                    TokenSource.Cancel();
+                    break;
+            }
             return Task.CompletedTask;
         }
 
@@ -46,8 +57,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 return;
             }
 
-            var count = Log.IsEnabled(Serilog.Events.LogEventLevel.Verbose) ? events.Count() : 0;
-            Log.Verbose("Got {Count} events to process", count);
             string latestOffset = null;
             foreach (var @event in events)
             {
@@ -55,11 +64,12 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 latestOffset = @event.SystemProperties.Offset;
             }
             await OnAllEventsProcessedAsync(latestOffset).ConfigureAwait(false);
-            Log.Verbose("Processed {Count} events", count);
         }
 
         protected virtual Task OnAllEventsProcessedAsync(string latestOffset) => Task.CompletedTask;
 
         protected Task SaveOffsetAsync(ITransaction tx, string latestOffset) => _offsets.SetAsync(tx, _partition, latestOffset);
+
+        public Task WaitForFinishedAsync(CancellationToken ct) => Task.Delay(Timeout.Infinite, TokenSource.Token);
     }
 }
