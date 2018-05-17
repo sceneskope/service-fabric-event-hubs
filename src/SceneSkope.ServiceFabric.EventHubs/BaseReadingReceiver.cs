@@ -30,7 +30,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
         IReliableDictionary<string, string> offsets, string partition,
         CancellationToken ct)
         {
-            Log = log.ForContext("partition", partition);
+            Log = log;
             StateManager = stateManager;
             Receiver = receiver;
             _offsets = offsets;

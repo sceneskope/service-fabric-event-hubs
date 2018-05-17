@@ -24,7 +24,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         protected SimpleReadingReceiver(ILogger log, PartitionReceiver receiver, IReliableDictionary<string, string> offsets, string partition, CancellationToken ct)
         {
-            Log = log.ForContext("partition", partition);
+            Log = log;
             Receiver = receiver;
             _offsets = offsets;
             _partition = partition;
