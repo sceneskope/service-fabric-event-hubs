@@ -18,9 +18,9 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         public int MaxBatchSize { get; set; } = 100;
 
-        public CancellationToken CancellationToken { get; }
-
         public PartitionReceiver Receiver { get; }
+
+        public CancellationTokenSource TokenSource { get; }
 
         protected SimpleReadingReceiver(ILogger log, PartitionReceiver receiver, IReliableDictionary<string, string> offsets, string partition, CancellationToken ct)
         {
@@ -28,7 +28,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
             Receiver = receiver;
             _offsets = offsets;
             _partition = partition;
-            CancellationToken = ct;
+            TokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
         }
 
         public virtual Task InitialiseAsync() => Task.CompletedTask;
@@ -36,14 +36,16 @@ namespace SceneSkope.ServiceFabric.EventHubs
         public virtual Task ProcessErrorAsync(Exception error)
         {
             Log.Error(error, "Error reading: {Exception}", error.Message);
-            if (error is ReceiverDisconnectedException)
+            switch (error)
             {
-                return Receiver.CloseAsync();
+                case ReceiverDisconnectedException _:
+                case OperationCanceledException _:
+                case EventHubsException _:
+                    Log.Information("Cancelling the receiver");
+                    TokenSource.Cancel();
+                    break;
             }
-            else
-            {
-                return Task.CompletedTask;
-            }
+            return Task.CompletedTask;
         }
 
         protected abstract Task ProcessEventAsync(EventData @event);
@@ -67,5 +69,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
         protected virtual Task OnAllEventsProcessedAsync(string latestOffset) => Task.CompletedTask;
 
         protected Task SaveOffsetAsync(ITransaction tx, string latestOffset) => _offsets.SetAsync(tx, _partition, latestOffset);
+
+        public Task WaitForFinishedAsync(CancellationToken ct) => Task.Delay(Timeout.Infinite, TokenSource.Token);
     }
 }

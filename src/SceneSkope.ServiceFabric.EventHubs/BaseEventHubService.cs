@@ -204,7 +204,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
                     var handler = CreateReadingReceiver(Log, StateManager, receiver, offsets, partition, ct);
                     await handler.InitialiseAsync().ConfigureAwait(false);
                     receiver.SetReceiveHandler(handler);
-                    await Task.Delay(Timeout.Infinite, ct).ConfigureAwait(false);
+                    await handler.WaitForFinishedAsync(ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {

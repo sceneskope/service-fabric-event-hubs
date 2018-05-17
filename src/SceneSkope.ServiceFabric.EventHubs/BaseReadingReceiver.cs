@@ -18,7 +18,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         private readonly IReliableDictionary<string, string> _offsets;
         protected readonly string _partition;
-        protected CancellationToken CancellationToken { get; }
+        public CancellationTokenSource TokenSource { get; }
 
         public int MaxBatchSize { get; set; } = 100;
         protected Policy TimeoutPolicy { get; }
@@ -35,11 +35,11 @@ namespace SceneSkope.ServiceFabric.EventHubs
             Receiver = receiver;
             _offsets = offsets;
             _partition = partition;
-            CancellationToken = ct;
+            TokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
             TimeoutPolicy =
                 Policy
 #pragma warning disable RCS1163 // Unused parameter.
-                .Handle<TimeoutException>(_ => !CancellationToken.IsCancellationRequested)
+                .Handle<TimeoutException>(_ => !TokenSource.IsCancellationRequested)
 #pragma warning restore RCS1163 // Unused parameter.
                 .WaitAndRetryForeverAsync(n => TimeSpan.FromMilliseconds((n < 10) ? n * 100 : 1000),
                     (ex, ts) => Log.Warning(ex, "Delaying {Ts} due to {Exception}", ts, ex.Message));
@@ -50,14 +50,16 @@ namespace SceneSkope.ServiceFabric.EventHubs
         public virtual Task ProcessErrorAsync(Exception error)
         {
             Log.Error(error, "Error reading: {Exception}", error.Message);
-            if (error is ReceiverDisconnectedException)
+            switch (error)
             {
-                return Receiver.CloseAsync();
+                case ReceiverDisconnectedException _:
+                case OperationCanceledException _:
+                case EventHubsException _:
+                    Log.Information("Cancelling the receiver");
+                    TokenSource.Cancel();
+                    break;
             }
-            else
-            {
-                return Task.CompletedTask;
-            }
+            return Task.CompletedTask;
         }
 
         protected abstract Task ProcessEventAsync(ITransaction tx, EventData @event);
@@ -85,7 +87,9 @@ namespace SceneSkope.ServiceFabric.EventHubs
                     await _offsets.SetAsync(tx, _partition, lastOffset).ConfigureAwait(false);
                     await tx.CommitAsync().ConfigureAwait(false);
                 }
-            }, CancellationToken, false).ConfigureAwait(false);
+            }, TokenSource.Token, false).ConfigureAwait(false);
         }
+
+        public virtual Task WaitForFinishedAsync(CancellationToken ct) => Task.Delay(Timeout.Infinite, TokenSource.Token);
     }
 }
