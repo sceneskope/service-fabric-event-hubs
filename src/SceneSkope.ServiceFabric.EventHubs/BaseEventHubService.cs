@@ -22,7 +22,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
         protected EventPosition DefaultPosition { get; set; } = EventPosition.FromEnd();
         protected TimeSpan? DefaultAge { get; set; }
-        protected bool UseEpochReceiver { get; set; } = true;
+        protected bool UseEpochReceiver { get; set; } = false;
 
         protected BaseEventHubService(StatefulServiceContext context, ILogger logger)
             : base(context, logger)
@@ -199,8 +199,8 @@ namespace SceneSkope.ServiceFabric.EventHubs
             while (!ct.IsCancellationRequested)
             {
                 var receiver = CreateReceiver(log, partition, offset);
-                log.Information("Receiver for {Partition} is {Identifier}", partition, receiver.Identifier);
-                receiver.RetryPolicy = RetryPolicy.NoRetry;
+                log.Information("Receiver for {Partition} is {Identifier}", partition, receiver);
+                //receiver.RetryPolicy = RetryPolicy.NoRetry;
                 try
                 {
                     var handler = CreateReadingReceiver(log, StateManager, receiver, offsets, partition, ct);
