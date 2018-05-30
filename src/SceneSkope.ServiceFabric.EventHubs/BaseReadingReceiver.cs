@@ -13,6 +13,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
 {
     public abstract class BaseReadingReceiver : IReadingReceiver
     {
+        protected static Random RandomJitter { get; } = new Random();
         public ILogger Log { get; }
         public IReliableStateManager StateManager { get; }
 
@@ -38,10 +39,8 @@ namespace SceneSkope.ServiceFabric.EventHubs
             TokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
             TimeoutPolicy =
                 Policy
-#pragma warning disable RCS1163 // Unused parameter.
-                .Handle<TimeoutException>(_ => !TokenSource.IsCancellationRequested)
-#pragma warning restore RCS1163 // Unused parameter.
-                .WaitAndRetryForeverAsync(n => TimeSpan.FromMilliseconds((n < 10) ? n * 100 : 1000),
+                .Handle<TimeoutException>()
+                .WaitAndRetryForeverAsync(n => TimeSpan.FromMilliseconds((n < 10) ? RandomJitter.Next(n*100, (n+1)*100) : RandomJitter.Next(500, 1500)),
                     (ex, ts) => Log.Warning(ex, "Delaying {Ts} due to {Exception}", ts, ex.Message));
         }
 
@@ -71,25 +70,36 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 return;
             }
 
-            string lastOffset = null;
-#pragma warning disable RCS1163 // Unused parameter.
-            await TimeoutPolicy.ExecuteAsync(async _ =>
-#pragma warning restore RCS1163 // Unused parameter.
+            await BeforeProcessEventsAsync(TokenSource.Token).ConfigureAwait(false);
+            try
             {
-                var count = events.Count();
-                using (var tx = StateManager.CreateTransaction())
+                string lastOffset = null;
+#pragma warning disable RCS1163 // Unused parameter.
+                await TimeoutPolicy.ExecuteAsync(async _ =>
+#pragma warning restore RCS1163 // Unused parameter.
                 {
-                    foreach (var @event in events)
+                    var count = events.Count();
+                    using (var tx = StateManager.CreateTransaction())
                     {
-                        await ProcessEventAsync(tx, @event).ConfigureAwait(false);
-                        lastOffset = @event.SystemProperties.Offset;
+                        foreach (var @event in events)
+                        {
+                            await ProcessEventAsync(tx, @event).ConfigureAwait(false);
+                            lastOffset = @event.SystemProperties.Offset;
+                        }
+                        await _offsets.SetAsync(tx, _partition, lastOffset).ConfigureAwait(false);
+                        await tx.CommitAsync().ConfigureAwait(false);
                     }
-                    await _offsets.SetAsync(tx, _partition, lastOffset).ConfigureAwait(false);
-                    await tx.CommitAsync().ConfigureAwait(false);
-                }
-            }, TokenSource.Token, false).ConfigureAwait(false);
+                }, TokenSource.Token, false).ConfigureAwait(false);
+            }
+            finally
+            {
+                await AfterProcessEventsAsync(TokenSource.Token).ConfigureAwait(false);
+            }
         }
 
         public virtual Task WaitForFinishedAsync(CancellationToken ct) => Task.Delay(Timeout.Infinite, TokenSource.Token);
+
+        public virtual Task BeforeProcessEventsAsync(CancellationToken ct) => Task.CompletedTask;
+        public virtual Task AfterProcessEventsAsync(CancellationToken ct) => Task.CompletedTask;
     }
 }

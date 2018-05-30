@@ -200,7 +200,6 @@ namespace SceneSkope.ServiceFabric.EventHubs
             {
                 var receiver = CreateReceiver(log, partition, offset);
                 log.Information("Receiver for {Partition} is {Identifier}", partition, receiver);
-                //receiver.RetryPolicy = RetryPolicy.NoRetry;
                 try
                 {
                     var handler = CreateReadingReceiver(log, StateManager, receiver, offsets, partition, ct);
