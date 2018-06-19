@@ -205,9 +205,10 @@ namespace SceneSkope.ServiceFabric.EventHubs
         private async Task ProcessPartitionAsync(string partition, Configuration configuration, ServiceFabricRetryHandler retryHandler)
         {
             var log = Log.ForContext("partition", partition);
-            var offset = await retryHandler.CallAsync(_ => ReadOffsetAsync(partition, configuration.Offsets)).ConfigureAwait(false);
             while (!retryHandler.IsCancellationRequested)
             {
+                var offset = await retryHandler.CallAsync(_ => ReadOffsetAsync(partition, configuration.Offsets)).ConfigureAwait(false);
+                Log.Information("Processing partition {Partition} from offset {Offset}", partition, offset);
                 var receiver = CreateReceiver(log, configuration, partition, offset);
                 try
                 {
@@ -222,6 +223,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
                             await handler.ProcessEventsAsync(messages).ConfigureAwait(false);
                         }
                     }
+                    retryHandler.ThrowIfCancellationRequested();
                 }
                 catch (Exception ex)
                 {
