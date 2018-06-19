@@ -1,12 +1,16 @@
-﻿using System.Threading;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Azure.EventHubs;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {
-    public interface IReadingReceiver : IPartitionReceiveHandler
+    public interface IReadingReceiver
     {
+        ServiceFabricRetryHandler RetryHandler { get; }
+        Func<Exception, bool> TransientExceptionChecker { get; }
+
         Task InitialiseAsync();
-        Task WaitForFinishedAsync(CancellationToken ct);
+        Task ProcessEventsAsync(IEnumerable<EventData> events);
     }
 }
