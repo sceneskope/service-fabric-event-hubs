@@ -6,6 +6,7 @@ using Microsoft.Azure.EventHubs;
 using Microsoft.ServiceFabric.Data;
 using Microsoft.ServiceFabric.Data.Collections;
 using Serilog;
+using ServiceFabric.Utilities;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {

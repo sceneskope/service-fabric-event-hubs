@@ -91,7 +91,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
 
             try
             {
-                var retryHandler = new ServiceFabricRetryHandler(Log, cancellationToken);
+                var retryHandler = new ServiceFabricRetryHandler(cancellationToken);
                 await InternalRunAsync(configuration, retryHandler).ConfigureAwait(false);
             }
             catch (Exception ex)
