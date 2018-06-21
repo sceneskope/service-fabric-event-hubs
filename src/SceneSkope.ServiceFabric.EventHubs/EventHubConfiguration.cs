@@ -14,12 +14,12 @@ namespace SceneSkope.ServiceFabric.EventHubs
             return EventHubClient.CreateFromConnectionString(inputConnectionString);
         }
 
-        private static async Task<string> GetEventHubConnectionString(string sectionName, Action<string> onFailure, CancellationToken ct)
+        public static async Task<string> GetEventHubConnectionString(string sectionName, Action<string> onFailure, CancellationToken ct)
         {
             return (await GetEventHubConnectionStringBuilder(sectionName, onFailure, ct).ConfigureAwait(false)).ToString();
         }
 
-        private static async Task<EventHubsConnectionStringBuilder> GetEventHubConnectionStringBuilder(string sectionName, Action<string> onFailure, CancellationToken ct)
+        public static async Task<EventHubsConnectionStringBuilder> GetEventHubConnectionStringBuilder(string sectionName, Action<string> onFailure, CancellationToken ct)
         {
             var configuration = new FabricConfigurationProvider(sectionName);
             if (!configuration.HasConfiguration)
