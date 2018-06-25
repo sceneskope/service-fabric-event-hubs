@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.EventHubs;
 using Microsoft.ServiceFabric.Data;
@@ -56,5 +55,9 @@ namespace SceneSkope.ServiceFabric.EventHubs
         protected virtual Task OnAllEventsProcessedAsync(string latestOffset) => Task.CompletedTask;
 
         protected Task SaveOffsetAsync(ITransaction tx, string latestOffset) => _offsets.SetAsync(tx, _partition, latestOffset);
+
+        public virtual void Dispose()
+        {
+        }
     }
 }

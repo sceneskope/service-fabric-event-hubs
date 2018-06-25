@@ -25,13 +25,25 @@ namespace SceneSkope.ServiceFabric.EventHubs
             if (!configuration.HasConfiguration)
             {
                 await configuration.RejectConfigurationAsync($"No {sectionName} section", onFailure, ct).ConfigureAwait(false);
+                return null;
             }
-            return new EventHubsConnectionStringBuilder(
-                new Uri(await configuration.TryReadConfigurationAsync("EndpointAddress", onFailure, ct).ConfigureAwait(false)),
-                await configuration.TryReadConfigurationAsync("EntityPath", onFailure, ct).ConfigureAwait(false),
-                await configuration.TryReadConfigurationAsync("SharedAccessKeyName", onFailure, ct).ConfigureAwait(false),
-                await configuration.TryReadConfigurationAsync("SharedAccessKey", onFailure, ct).ConfigureAwait(false)
-            );
+            try
+            {
+                var endpointAddress = await configuration.TryReadConfigurationAsync("EndpointAddress", onFailure, ct).ConfigureAwait(false);
+                var builder = new EventHubsConnectionStringBuilder(
+                    new Uri($"amqps://{endpointAddress}"),
+                    await configuration.TryReadConfigurationAsync("EntityPath", onFailure, ct).ConfigureAwait(false),
+                    await configuration.TryReadConfigurationAsync("SharedAccessKeyName", onFailure, ct).ConfigureAwait(false),
+                    await configuration.TryReadConfigurationAsync("SharedAccessKey", onFailure, ct).ConfigureAwait(false)
+                );
+                return builder;
+            }
+            catch (Exception ex)
+            {
+                ct.ThrowIfCancellationRequested();
+                await configuration.RejectConfigurationAsync($"Exception creating connection string builder: {ex.Message}", onFailure, ct).ConfigureAwait(false);
+                return null;
+            }
         }
     }
 }

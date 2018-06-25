@@ -212,15 +212,15 @@ namespace SceneSkope.ServiceFabric.EventHubs
                 var receiver = CreateReceiver(log, configuration, partition, offset);
                 try
                 {
-                    var handler = CreateReadingReceiver(log, StateManager, receiver, configuration.Offsets, partition, retryHandler);
-                    await handler.InitialiseAsync().ConfigureAwait(false);
-
-                    while (!retryHandler.IsCancellationRequested)
+                    using (var handler = await CreateReadingReceiverAsync(log, StateManager, receiver, configuration.Offsets, partition, retryHandler).ConfigureAwait(false))
                     {
-                        var messages = await receiver.ReceiveAsync(MaxEntries).ConfigureAwait(false);
-                        if (messages != null)
+                        while (!retryHandler.IsCancellationRequested)
                         {
-                            await handler.ProcessEventsAsync(messages).ConfigureAwait(false);
+                            var messages = await receiver.ReceiveAsync(MaxEntries).ConfigureAwait(false);
+                            if (messages != null)
+                            {
+                                await handler.ProcessEventsAsync(messages).ConfigureAwait(false);
+                            }
                         }
                     }
                     retryHandler.ThrowIfCancellationRequested();
@@ -239,7 +239,7 @@ namespace SceneSkope.ServiceFabric.EventHubs
             }
         }
 
-        protected abstract IReadingReceiver CreateReadingReceiver(ILogger log, IReliableStateManager stateManager,
+        protected abstract Task<IReadingReceiver> CreateReadingReceiverAsync(ILogger log, IReliableStateManager stateManager,
             PartitionReceiver receiver, IReliableDictionary<string, string> offsets, string partition, ServiceFabricRetryHandler retryHandler);
     }
 }
