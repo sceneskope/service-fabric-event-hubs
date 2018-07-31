@@ -68,5 +68,9 @@ namespace SceneSkope.ServiceFabric.EventHubs
         public virtual Task BeforeTransactionCommitAsync(ITransaction tx, CancellationToken serviceCancellationToken) => Task.CompletedTask;
         public virtual Task BeforeProcessEventsAsync(CancellationToken serviceCancellationToken) => Task.CompletedTask;
         public virtual Task AfterProcessEventsAsync(CancellationToken serviceCancellationToken) => Task.CompletedTask;
+
+        public virtual void Dispose()
+        {
+        }
     }
 }
