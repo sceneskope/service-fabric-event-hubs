@@ -41,7 +41,9 @@ namespace SceneSkope.ServiceFabric.EventHubs
             catch (Exception ex)
             {
                 ct.ThrowIfCancellationRequested();
+#pragma warning disable ERP023 // Only ex.Message property was observed in exception block!
                 await configuration.RejectConfigurationAsync($"Exception creating connection string builder: {ex.Message}", onFailure, ct).ConfigureAwait(false);
+#pragma warning restore ERP023 // Only ex.Message property was observed in exception block!
                 return null;
             }
         }
