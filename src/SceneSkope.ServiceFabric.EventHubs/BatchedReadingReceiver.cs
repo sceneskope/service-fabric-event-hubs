@@ -10,39 +10,23 @@ using ServiceFabric.Utilities;
 
 namespace SceneSkope.ServiceFabric.EventHubs
 {
-    public abstract class BatchedReadingReceiver : IReadingReceiver
+    public abstract class BatchedReadingReceiver : BaseReadingReceiver
     {
-        public Func<Exception, bool> TransientExceptionChecker { get; }
-        public ServiceFabricRetryHandler RetryHandler { get; }
-        public ILogger Log { get; }
-        public IReliableStateManager StateManager { get; }
-
-        private readonly IReliableDictionary<string, string> _offsets;
-        protected readonly string _partition;
-
-        public PartitionReceiver Receiver { get; }
 
         protected BatchedReadingReceiver(ILogger log,
             IReliableStateManager stateManager,
             PartitionReceiver receiver,
-            IReliableDictionary<string, string> offsets, string partition,
+            IReliableDictionary<string, string> offsets, 
+            string partition,
             ServiceFabricRetryHandler retryHandler,
-            Func<Exception, bool> transientExceptionChecker = null)
+            Func<Exception, bool> transientExceptionChecker = null) : 
+            base(log, stateManager, receiver, offsets, partition, retryHandler, transientExceptionChecker)
         {
-            RetryHandler = retryHandler;
-            Log = log;
-            StateManager = stateManager;
-            Receiver = receiver;
-            _offsets = offsets;
-            _partition = partition;
-            TransientExceptionChecker = transientExceptionChecker;
         }
-
-        public virtual Task InitialiseAsync() => Task.CompletedTask;
 
         protected abstract Task ProcessEventAsync(ITransaction tx, EventData @event, CancellationToken serviceCancellationToken);
 
-        public async Task ProcessEventsAsync(IEnumerable<EventData> events)
+        protected override async Task ProcessEventsAsync(IReadOnlyList<EventData> events)
         {
             await BeforeProcessEventsAsync(RetryHandler.ServiceCancellationToken).ConfigureAwait(false);
             await RetryHandler.HandleAsync(async cancel =>
@@ -69,8 +53,5 @@ namespace SceneSkope.ServiceFabric.EventHubs
         public virtual Task BeforeProcessEventsAsync(CancellationToken serviceCancellationToken) => Task.CompletedTask;
         public virtual Task AfterProcessEventsAsync(CancellationToken serviceCancellationToken) => Task.CompletedTask;
 
-        public virtual void Dispose()
-        {
-        }
     }
 }
